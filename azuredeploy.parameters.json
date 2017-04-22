@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "networkDnsName": {
+      "value": "pfgdeploy"
+    },
+    "sqlServerName": {
+      "value": "vmdeploysql"
+    },
+    "licenseFullName": {
+      "value": "mumtaz"
+    },
+    "licenseOrganisationName": {
+      "value": "pfg"
+    },
+    "licenseEmailAddress": {
+      "value": "tigerdeccan@gmail.com"
+    },
+    "vmAdminPassword": {
+      "value": "Webadmin2608?"
+    },
+    "sqlAdminPassword": {
+      "value": "BadBoy1*$"
+    },
+    "octopusAdminPassword": {
+      "value": "Webadmin2608?"
+    }
+  }
+}

@@ -8,8 +8,10 @@ param (
 )
 
 $config = @{}
-$msiFileName = "Octopus.latest-x64.msi"
-$downloadUrl = "https://octopus.com/downloads/latest/OctopusServer64"
+$octopusDeployVersion = "Octopus.3.0.12.2366-x64"
+$msiFileName = "Octopus.3.0.12.2366-x64.msi"
+$downloadBaseUrl = "https://download.octopusdeploy.com/octopus/"
+$downloadUrl = $downloadBaseUrl + $msiFileName
 $installBasePath = "D:\Install\"
 $msiPath = $installBasePath + $msiFileName
 $msiLogPath = $installBasePath + $msiFileName + '.log'
@@ -53,47 +55,7 @@ function Get-Config
   $config.Add("licenseEmailAddress", [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($LicenseEmailAddress)))
   $config.Add("octopusAdminUsername", [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($OctopusAdminUsername)))
   $config.Add("octopusAdminPassword", [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($OctopusAdminPassword)))
-    
-  Write-Log "done."
-  Write-Log ""
-}
-
-function Create-DataDisk
-{
-  Write-Log "======================================"
-  Write-Log " Create Data Disk"
-  Write-Log ""
   
-  $driveLetters = @('F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z')
-  $allocateDriveLetters = (Get-Partition).DriveLetter
-  $availableDriveLetters = $driveLetters |? {$_ -notin $allocateDriveLetters }
-  $disk = (Get-Disk |? { $_.PartitionStyle -eq 'RAW' })[0]
-  Write-Log "Found attached data disk with RAW partition."
-  
-  $driveLetter = $availableDriveLetters[0].ToString()
-  Write-Log "Assigning drive letter $driveLetter."
-  Write-Log "Formatting ..."
-  $disk | Initialize-Disk -PartitionStyle MBR -PassThru |	New-Partition -UseMaximumSize -DriveLetter $driveLetter | Format-Volume -FileSystem NTFS -NewFileSystemLabel "Octopus-DataDisk" -Confirm:$false -Force | Out-Null
-  Write-Log "done."
-
-  $path = $driveLetter + ':\Octopus\Artifacts' 
-  Write-Log "Creating '$path' ..."
-  New-Item -Path $path -ItemType Directory | Out-Null
-  $config.Add('octopusArtifactsPath', $path)
-  Write-Log "done."
-  
-  $path = $driveLetter + ':\Octopus\TaskLogs' 
-  Write-Log "Creating '$path' ..."
-  New-Item -Path $path -ItemType Directory | Out-Null
-  $config.Add('octopusTaskLogsPath', $path)
-  Write-Log "done."
-  
-  $path = $driveLetter + ':\Octopus\Packages' 
-  Write-Log "Creating '$path' ..."
-  New-Item -Path $path -ItemType Directory | Out-Null
-  $config.Add('octopusPackagesPath', $path)
-  Write-Log "done."
-
   Write-Log "done."
   Write-Log ""
 }
@@ -125,8 +87,7 @@ function Install-OctopusDeploy
   Write-Log ""
     
   Write-Log "Downloading Octopus Deploy installer '$downloadUrl' to '$msiPath' ..."
-  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-  Invoke-WebRequest -Uri $downloadUrl -Method GET -OutFile $msiPath
+  (New-Object Net.WebClient).DownloadFile($downloadUrl, $msiPath)
   Write-Log "done."
   
   Write-Log "Installing via '$msiPath' ..."
@@ -209,36 +170,6 @@ function Configure-OctopusDeploy
   $output = .$exe $args
   Write-CommandOutput $output
   Write-Log "done."
-  
-  Write-Log "Setting Artifacts path for Octopus Deploy instance ..."
-  $args = @(
-    'path', 
-    '--console',
-    '--artifacts', $($config.octopusArtifactsPath)
-  )
-  $output = .$exe $args
-  Write-CommandOutput $output
-  Write-Log "done."
-  
-  Write-Log "Setting TaskLogs path for Octopus Deploy instance ..."
-  $args = @(
-    'path', 
-    '--console',
-    '--taskLogs', $($config.octopusTaskLogsPath)
-  )
-  $output = .$exe $args
-  Write-CommandOutput $output
-  Write-Log "done."
-  
-  Write-Log "Setting NuGetRepository path for Octopus Deploy instance ..."
-  $args = @(
-    'path', 
-    '--console',
-    '--nugetRepository', $($config.octopusPackagesPath)
-  )
-  $output = .$exe $args
-  Write-CommandOutput $output
-  Write-Log "done."
     
   Write-Log "Creating Admin User for Octopus Deploy instance ..."
   $args = @(
@@ -253,12 +184,7 @@ function Configure-OctopusDeploy
   Write-Log "done."  
 
   Write-Log "Obtaining a trial license for Full Name: $($config.licenseFullName), Organisation Name: $($config.licenseOrganisationName), Email Address: $($config.licenseEmailAddress) ..."
-  $postParams = @{ 
-                  FullName="$($config.licenseFullName)"
-                  Organization="$($config.licenseOrganisationName)"
-                  EmailAddress="$($config.licenseEmailAddress)" 
-                  Source="azure"
-                 }
+  $postParams = @{ FullName="$($config.licenseFullName)";Organization="$($config.licenseOrganisationName)";EmailAddress="$($config.licenseEmailAddress)" }
   $response = Invoke-WebRequest -UseBasicParsing -Uri "$octopusLicenseUrl" -Method POST -Body $postParams
   $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
   $bytes  = $utf8NoBOM.GetBytes($response.Content)
@@ -329,12 +255,11 @@ function Configure-Firewall
 try
 {
   Write-Log "======================================"
-  Write-Log " Installing Octopus Deploy"
+  Write-Log " Installing '$octopusDeployVersion'"
   Write-Log "======================================"
   Write-Log ""
   
   Get-Config
-  Create-DataDisk
   Create-InstallLocation
   Install-OctopusDeploy
   Configure-OctopusDeploy
