@@ -1,0 +1,51 @@
+﻿Configuration WebSiteConfig
+{
+Node MyWebServer
+{
+
+ WindowsFeature installdotNet35 
+    {             
+        Ensure = "Present"
+        Name = "Net-Framework-Core"
+        Source = "\\pfgdfs01\Packages\Microsoft\Windows\Server\2012 R2\sxs"
+    } 
+
+
+WindowsFeature IIS
+    {
+        Ensure = "Present"
+        Name = "Web-Server"
+    }
+
+
+WindowsFeature ASP
+    {
+        Ensure = "Present"
+        Name = "Web-Asp-Net45"
+    }
+
+
+
+Website MyWebSite
+    {
+        Ensure = "Present"
+        Name = "MyWebSite"
+        PhysicalPath = "C:\Inetpub\MyWebSite"
+        State = "Started"
+        Protocol = @("http")
+        BindingInfo = @("*:80:")
+    }
+
+
+File releasefiles
+{
+                SourcePath = "c:\source\" 
+                DestinationPath = "c:\inetpub\myWebsite" 
+                Ensure = "Present" 
+                MatchSource = $true 
+                Recurse= $true
+                Type = "Directory" 
+
+}
+}
+}
